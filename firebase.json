@@ -1,0 +1,6 @@
+{
+  "hosting": {
+    "public": "dist/jonchess",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
+}
