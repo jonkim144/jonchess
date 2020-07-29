@@ -1,7 +1,7 @@
 import { Board } from './board';
 import { CastlingMover, DoublePushMover, EnPassantMover, IMover, KingMover, Mover, PromotionMover, RookMover } from './mover';
-
-const isValidCoordinate = (coordinate: number) => coordinate > -1 && coordinate < 8;
+import { KingAttackMap, RookAttackMap, KnightAttackMap, BishopAttackMap, WhitePawnAttackMap, BlackPawnAttackMap } from './attack_maps';
+import { CheckChecker } from './check_checker';
 
 const CASTLING_TO_CLEAR_MAP = new Map<number, string>([
   [0, 'Q'],
@@ -9,218 +9,6 @@ const CASTLING_TO_CLEAR_MAP = new Map<number, string>([
   [56, 'q'],
   [63, 'k'],
 ]);
-
-class KingMovesMap {
-  private static map = new Map<number, number[]>();
-  private static initialized: boolean = false;
-
-  constructor() {
-    if (KingMovesMap.initialized) return;
-
-    KingMovesMap.initialized = true;
-    [...Array(64).keys()].forEach((from) => {
-      const x = from % 8;
-      const y = Math.floor(from / 8);
-      [
-        [0, 1],
-        [1, 1],
-        [1, -1],
-        [1, 0],
-      ].forEach(([dx, dy]) => {
-        [-1, 1].forEach((sign) => {
-          const newX = x + dx * sign;
-          const newY = y + dy * sign;
-          if (!isValidCoordinate(newX)) return;
-          if (!isValidCoordinate(newY)) return;
-
-          if (!KingMovesMap.map.has(from)) KingMovesMap.map.set(from, []);
-          KingMovesMap.map.get(from).push(newX + 8 * newY);
-        });
-      });
-    });
-  }
-
-  get(location: number): number[] {
-    return KingMovesMap.map.get(location);
-  }
-}
-const VALID_KING_MOVES_MAP = new KingMovesMap();
-
-class RookRaysMap {
-  private static map = new Map<number, number[][]>();
-  private static initialized: boolean = false;
-
-  constructor() {
-    if (RookRaysMap.initialized) return;
-
-    RookRaysMap.initialized = true;
-    [...Array(64).keys()].forEach((from) => {
-      RookRaysMap.map.set(from, []);
-      const x = from % 8;
-      const y = Math.floor(from / 8);
-      [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ].forEach(([dx, dy]) => {
-        let newX = x + dx;
-        let newY = y + dy;
-        const nextRayIndex = RookRaysMap.map.get(from).length;
-        while (isValidCoordinate(newX) && isValidCoordinate(newY)) {
-          if (!RookRaysMap.map.get(from)[nextRayIndex]) RookRaysMap.map.get(from).push([]);
-
-          RookRaysMap.map.get(from)[nextRayIndex].push(newX + 8 * newY);
-          newX += dx;
-          newY += dy;
-        }
-      });
-    });
-  }
-
-  get(location: number): number[][] {
-    return RookRaysMap.map.get(location);
-  }
-}
-const VALID_ROOK_RAYS_MAP = new RookRaysMap();
-
-class BishopRaysMap {
-  private static map = new Map<number, number[][]>();
-  private static initialized: boolean = false;
-
-  constructor() {
-    if (BishopRaysMap.initialized) return;
-
-    BishopRaysMap.initialized = true;
-    [...Array(64).keys()].forEach((from) => {
-      BishopRaysMap.map.set(from, []);
-      const x = from % 8;
-      const y = Math.floor(from / 8);
-      [
-        [1, 1],
-        [1, -1],
-        [-1, 1],
-        [-1, -1],
-      ].forEach(([dx, dy]) => {
-        let newX = x + dx;
-        let newY = y + dy;
-        const nextRayIndex = BishopRaysMap.map.get(from).length;
-        while (isValidCoordinate(newX) && isValidCoordinate(newY)) {
-          if (!BishopRaysMap.map.get(from)[nextRayIndex]) BishopRaysMap.map.get(from).push([]);
-
-          BishopRaysMap.map.get(from)[nextRayIndex].push(newX + 8 * newY);
-          newX += dx;
-          newY += dy;
-        }
-      });
-    });
-  }
-
-  get(location: number): number[][] {
-    return BishopRaysMap.map.get(location);
-  }
-}
-const VALID_BISHOP_RAYS_MAP = new BishopRaysMap();
-
-class KnightMovesMap {
-  private static map = new Map<number, number[]>();
-  private static initialized: boolean = false;
-
-  constructor() {
-    if (KnightMovesMap.initialized) return;
-
-    KnightMovesMap.initialized = true;
-    [...Array(64).keys()].forEach((from) => {
-      if (!KnightMovesMap.map.has(from)) KnightMovesMap.map.set(from, []);
-      const x = from % 8;
-      const y = Math.floor(from / 8);
-      [
-        [1, 2],
-        [1, -2],
-        [2, 1],
-        [2, -1],
-      ].forEach(([dx, dy]) => {
-        [-1, 1].forEach((sign) => {
-          const newX = x + dx * sign;
-          const newY = y + dy * sign;
-          if (!isValidCoordinate(newX)) return;
-          if (!isValidCoordinate(newY)) return;
-
-          KnightMovesMap.map.get(from).push(newX + 8 * newY);
-        });
-      });
-    });
-  }
-
-  get(location: number): number[] {
-    return KnightMovesMap.map.get(location);
-  }
-}
-const VALID_KNIGHT_MOVES_MAP = new KnightMovesMap();
-
-class WhitePawnAttackMap {
-  private static map = new Map<number, number[]>();
-  private static initialized: boolean = false;
-
-  constructor() {
-    if (WhitePawnAttackMap.initialized) return;
-
-    WhitePawnAttackMap.initialized = true;
-    [...Array(64).keys()].forEach((from) => {
-      if (!WhitePawnAttackMap.map.has(from)) WhitePawnAttackMap.map.set(from, []);
-      const x = from % 8;
-      const y = Math.floor(from / 8);
-      [
-        [1, -1],
-        [-1, -1],
-      ].forEach(([dx, dy]) => {
-        const newX = x + dx;
-        const newY = y + dy;
-        if (!isValidCoordinate(newX)) return;
-        if (!isValidCoordinate(newY)) return;
-
-        WhitePawnAttackMap.map.get(from).push(newX + 8 * newY);
-      });
-    });
-  }
-
-  get(location: number): number[] {
-    return WhitePawnAttackMap.map.get(location);
-  }
-}
-const VALID_WHITE_PAWN_ATTACK_MAP = new WhitePawnAttackMap();
-
-class BlackPawnAttackMap {
-  private static map = new Map<number, number[]>();
-  private static initialized: boolean = false;
-
-  constructor() {
-    if (BlackPawnAttackMap.initialized) return;
-
-    BlackPawnAttackMap.initialized = true;
-    [...Array(64).keys()].forEach((from) => {
-      if (!BlackPawnAttackMap.map.has(from)) BlackPawnAttackMap.map.set(from, []);
-      const x = from % 8;
-      const y = Math.floor(from / 8);
-      [
-        [1, 1],
-        [-1, 1],
-      ].forEach(([dx, dy]) => {
-        const newX = x + dx;
-        const newY = y + dy;
-        if (!isValidCoordinate(newX)) return;
-        if (!isValidCoordinate(newY)) return;
-
-        BlackPawnAttackMap.map.get(from).push(newX + 8 * newY);
-      });
-    });
-  }
-
-  get(location: number): number[] {
-    return BlackPawnAttackMap.map.get(location);
-  }
-}
-const VALID_BLACK_PAWN_ATTACK_MAP = new BlackPawnAttackMap();
 
 export class MoveGenerator {
   generate(board: Board, from: number = -1, to: number = -1): IMover[] {
@@ -288,7 +76,7 @@ export class MoveGenerator {
   }
 
   private generateWhiteKingMoves(board: Board, location: number, moves: IMover[]): void {
-    VALID_KING_MOVES_MAP.get(location).forEach((to) => {
+    KingAttackMap.get(location).forEach((to) => {
       if (!this.isWhitePiece(board.at(to))) this.addMove(board, moves, new KingMover(new Mover(location, to), 'KQ'));
     });
     if (~board.castling.indexOf('K')) {
@@ -316,7 +104,7 @@ export class MoveGenerator {
   }
 
   private generateBlackKingMoves(board: Board, location: number, moves: IMover[]): void {
-    VALID_KING_MOVES_MAP.get(location).forEach((to) => {
+    KingAttackMap.get(location).forEach((to) => {
       if (!this.isBlackPiece(board.at(to))) this.addMove(board, moves, new KingMover(new Mover(location, to), 'kq'));
     });
     if (~board.castling.indexOf('k')) {
@@ -355,7 +143,7 @@ export class MoveGenerator {
 
   private generateWhiteRookMoves(board: Board, location: number, moves: IMover[]): void {
     const castlingToClear = CASTLING_TO_CLEAR_MAP.get(location) || '';
-    VALID_ROOK_RAYS_MAP.get(location).forEach((ray) => {
+    RookAttackMap.get(location).forEach((ray) => {
       for (let i = 0; i < ray.length; ++i) {
         const to = ray[i];
         const pieceAtTo = board.at(to);
@@ -371,7 +159,7 @@ export class MoveGenerator {
 
   private generateBlackRookMoves(board: Board, location: number, moves: IMover[]): void {
     const castlingToClear = CASTLING_TO_CLEAR_MAP.get(location) || '';
-    VALID_ROOK_RAYS_MAP.get(location).forEach((ray) => {
+    RookAttackMap.get(location).forEach((ray) => {
       for (let i = 0; i < ray.length; ++i) {
         const to = ray[i];
         const pieceAtTo = board.at(to);
@@ -386,7 +174,7 @@ export class MoveGenerator {
   }
 
   private generateWhiteBishopMoves(board: Board, location: number, moves: IMover[]): void {
-    VALID_BISHOP_RAYS_MAP.get(location).forEach((ray) => {
+    BishopAttackMap.get(location).forEach((ray) => {
       for (let i = 0; i < ray.length; ++i) {
         const to = ray[i];
         const pieceAtTo = board.at(to);
@@ -401,7 +189,7 @@ export class MoveGenerator {
   }
 
   private generateBlackBishopMoves(board: Board, location: number, moves: IMover[]): void {
-    VALID_BISHOP_RAYS_MAP.get(location).forEach((ray) => {
+    BishopAttackMap.get(location).forEach((ray) => {
       for (let i = 0; i < ray.length; ++i) {
         const to = ray[i];
         const pieceAtTo = board.at(to);
@@ -416,82 +204,19 @@ export class MoveGenerator {
   }
 
   private generateWhiteKnightMoves(board: Board, location: number, moves: IMover[]): void {
-    VALID_KNIGHT_MOVES_MAP.get(location).forEach((to) => {
+    KnightAttackMap.get(location).forEach((to) => {
       if (!this.isWhitePiece(board.at(to))) this.addMove(board, moves, new Mover(location, to));
     });
   }
 
   private generateBlackKnightMoves(board: Board, location: number, moves: IMover[]): void {
-    VALID_KNIGHT_MOVES_MAP.get(location).forEach((to) => {
+    KnightAttackMap.get(location).forEach((to) => {
       if (!this.isBlackPiece(board.at(to))) this.addMove(board, moves, new Mover(location, to));
     });
   }
 
   private isInCheck(board: Board, forWhite: boolean): boolean {
-    if (!forWhite) {
-      const kingLocation = board.blackKingPosition;
-      for (const ray of VALID_BISHOP_RAYS_MAP.get(kingLocation)) {
-        for (let i = 0; i < ray.length; ++i) {
-          const piece = board.at(ray[i]);
-          if (piece !== '_') {
-            if (piece === 'B' || piece === 'Q') return true;
-
-            break;
-          }
-        }
-      }
-      for (const ray of VALID_ROOK_RAYS_MAP.get(kingLocation)) {
-        for (let i = 0; i < ray.length; ++i) {
-          const piece = board.at(ray[i]);
-          if (piece !== '_') {
-            if (piece === 'R' || piece === 'Q') return true;
-
-            break;
-          }
-        }
-      }
-      for (const knightLocation of VALID_KNIGHT_MOVES_MAP.get(kingLocation)) {
-        if (board.at(knightLocation) === 'N') return true;
-      }
-      for (const pawnLocation of VALID_WHITE_PAWN_ATTACK_MAP.get(kingLocation)) {
-        if (board.at(pawnLocation) === 'P') return true;
-      }
-      for (const enemyKingPosition of VALID_KING_MOVES_MAP.get(kingLocation)) {
-        if (board.at(enemyKingPosition) === 'K') return true;
-      }
-    } else {
-      const kingLocation = board.whiteKingPosition;
-      for (const ray of VALID_BISHOP_RAYS_MAP.get(kingLocation)) {
-        for (let i = 0; i < ray.length; ++i) {
-          const piece = board.at(ray[i]);
-          if (piece !== '_') {
-            if (piece === 'b' || piece === 'q') return true;
-
-            break;
-          }
-        }
-      }
-      for (const ray of VALID_ROOK_RAYS_MAP.get(kingLocation)) {
-        for (let i = 0; i < ray.length; ++i) {
-          const piece = board.at(ray[i]);
-          if (piece !== '_') {
-            if (piece === 'r' || piece === 'q') return true;
-
-            break;
-          }
-        }
-      }
-      for (const knightLocation of VALID_KNIGHT_MOVES_MAP.get(kingLocation)) {
-        if (board.at(knightLocation) === 'n') return true;
-      }
-      for (const pawnLocation of VALID_BLACK_PAWN_ATTACK_MAP.get(kingLocation)) {
-        if (board.at(pawnLocation) === 'p') return true;
-      }
-      for (const enemyKingPosition of VALID_KING_MOVES_MAP.get(kingLocation)) {
-        if (board.at(enemyKingPosition) === 'k') return true;
-      }
-    }
-    return false;
+    return CheckChecker.isInCheck(board, forWhite);
   }
 
   private addMove(board: Board, moves: IMover[], mover: IMover): void {
@@ -521,7 +246,7 @@ export class MoveGenerator {
       }
     }
     // pawns can attack where enemy pawns can attack from
-    VALID_BLACK_PAWN_ATTACK_MAP.get(location).forEach((captureTarget) => {
+    BlackPawnAttackMap.get(location).forEach((captureTarget) => {
       if (this.isBlackPiece(board.at(captureTarget))) {
         if (rank !== 6) {
           this.addMove(board, moves, new Mover(location, captureTarget));
@@ -555,7 +280,7 @@ export class MoveGenerator {
       }
     }
     // pawns can attack where enemy pawns can attack from
-    VALID_WHITE_PAWN_ATTACK_MAP.get(location).forEach((captureTarget) => {
+    WhitePawnAttackMap.get(location).forEach((captureTarget) => {
       if (this.isWhitePiece(board.at(captureTarget))) {
         if (rank !== 1) {
           this.addMove(board, moves, new Mover(location, captureTarget));

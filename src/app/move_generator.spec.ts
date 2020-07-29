@@ -60,6 +60,12 @@ describe('Perft', () => {
     const result = perft(4);
     expect(result).toBe(3894594);
   });
+
+  it('stuck thinking position', () => {
+    board = new Board('rnbqkbnr/3p2pp/4p3/pB2PpB1/P7/2N2N2/1PP2PPP/R2QR1K1 b kq -');
+    const result = perft(3);
+    expect(result).toBe(29694);
+  });
 });
 
 describe('MoveGenerator', () => {

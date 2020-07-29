@@ -1,7 +1,7 @@
 import { Component, HostListener, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { Board } from './board';
-import { Engine } from './engine';
+import { Engine, GameState } from './engine';
 import { MoveGenerator } from './move_generator';
 
 @Component({
@@ -90,18 +90,14 @@ export class AppComponent implements OnInit {
         oldFen = this.board.fen;
         this.engine.undo();
         if (this.board.fen !== oldFen) {
-          this.fenControl.setValue(this.board.fen);
-          this.renderBoard(...this.getChangedSquares(oldFen, this.board.fen));
-          this.clearHighlights();
+          this.handleMoveMade();
         }
         break;
       case 'ArrowRight':
         oldFen = this.board.fen;
         this.engine.redo();
         if (this.board.fen !== oldFen) {
-          this.fenControl.setValue(this.board.fen);
-          this.renderBoard(...this.getChangedSquares(oldFen, this.board.fen));
-          this.clearHighlights();
+          this.handleMoveMade();
         }
         break;
       default:
@@ -109,16 +105,19 @@ export class AppComponent implements OnInit {
     }
   }
 
+  private setMessage(message: string): void {
+    this.messageControl.setValue(message);
+  }
+
   handleClickMakeMove(): void {
-    this.messageControl.setValue('Thinking...');
+    this.setMessage('Thinking...');
     setTimeout(() => {
       this.engine.getBestMove().then((move) => {
         if (move) {
           this.engine.tryMakeMove(move.from, move.to);
           this.handleMoveMade();
-          this.messageControl.setValue(`${this.board.isWhiteToMove ? 'White' : 'Black'} to move`);
         } else {
-          this.messageControl.setValue('Game over');
+          this.updateGameState();
         }
       });
     });
@@ -252,7 +251,30 @@ export class AppComponent implements OnInit {
     this.fenControl.setValue(this.board.fen);
     this.renderBoard(...changedSquares);
     this.clearHighlights();
-    this.messageControl.setValue(`${this.board.isWhiteToMove ? 'White' : 'Black'} to move`);
+    this.updateGameState();
+  }
+
+  private updateGameState(): void {
+    switch (this.engine.gameState) {
+      case GameState.WhiteWins:
+        this.setMessage('Checkmate! White wins.');
+        break;
+      case GameState.BlackWins:
+        this.setMessage('Checkmate! Black wins.');
+        break;
+      case GameState.DrawByRepetition:
+        this.setMessage('Draw by repetition.');
+        break;
+      case GameState.Stalemate:
+        this.setMessage('Stalemate!');
+        break;
+      case GameState.WhiteToMove:
+        this.setMessage(`White to move`);
+        break;
+      case GameState.BlackToMove:
+        this.setMessage(`Black to move`);
+        break;
+    }
   }
 
   private handleMouseDown(e: MouseEvent): void {

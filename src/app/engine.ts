@@ -1,13 +1,22 @@
 import { IMover } from './mover';
 import { Board } from './board';
 import { MoveGenerator } from './move_generator';
+import { CheckChecker } from './check_checker';
+
+export enum GameState {
+  WhiteWins,
+  BlackWins,
+  Draw,
+  WhiteToMove,
+  BlackToMove,
+}
 
 export class Engine {
   private board: Board;
   private history: IMover[] = [];
   private redoStack: IMover[] = [];
   private moveGenerator: MoveGenerator = new MoveGenerator();
-  private depth: number = 5;
+  private depth: number = 4;
 
   constructor(board: Board) {
     this.board = board;
@@ -36,6 +45,16 @@ export class Engine {
 
   get lastMove(): IMover {
     return this.history[this.history.length - 1];
+  }
+
+  get gameState(): GameState {
+    if (this.moveGenerator.generate(this.board).length) {
+      return this.board.isWhiteToMove ? GameState.WhiteToMove : GameState.BlackToMove;
+    }
+    if (CheckChecker.isInCheck(this.board, this.board.isWhiteToMove)) {
+      return this.board.isWhiteToMove ? GameState.BlackWins : GameState.WhiteWins;
+    }
+    return GameState.Draw;
   }
 
   getLegalMoves(from: number): IMover[] {
