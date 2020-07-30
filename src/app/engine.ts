@@ -3,6 +3,32 @@ import { Board } from './board';
 import { MoveGenerator } from './move_generator';
 import { CheckChecker } from './check_checker';
 
+const PIECE_VALUE = {
+  K: 0,
+  k: 0,
+  P: 1,
+  p: -1,
+  N: 3,
+  n: -3,
+  B: 3,
+  b: -3,
+  R: 5,
+  r: -5,
+  Q: 9,
+  q: -9,
+  _: 0,
+};
+
+const shuffle = (a) => {
+  for (let i = a.length - 1; i > 0; --i) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+};
+
 export enum GameState {
   WhiteWins,
   BlackWins,
@@ -16,7 +42,7 @@ export class Engine {
   private history: IMover[] = [];
   private redoStack: IMover[] = [];
   private moveGenerator: MoveGenerator = new MoveGenerator();
-  private depth: number = 4;
+  private depth: number = 5;
 
   constructor(board: Board) {
     this.board = board;
@@ -74,7 +100,8 @@ export class Engine {
   getBestMove(): Promise<IMover | undefined> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        const moves = this.moveGenerator.generate(this.board);
+        const moves = shuffle(this.moveGenerator.generate(this.board));
+        moves.sort((a, b) => Math.abs(PIECE_VALUE[this.board.at(b.to)]) - Math.abs(PIECE_VALUE[this.board.at(a.to)]));
         let [bestMove] = moves;
         let bestScore = -Infinity;
         let alpha = -Infinity;
@@ -104,6 +131,7 @@ export class Engine {
     }
 
     const moves = this.moveGenerator.generate(this.board);
+    moves.sort((a, b) => Math.abs(PIECE_VALUE[this.board.at(b.to)]) - Math.abs(PIECE_VALUE[this.board.at(a.to)]));
     let bestScore = -Infinity;
     for (let i = 0; i < moves.length; ++i) {
       const move = moves[i];
@@ -124,38 +152,7 @@ export class Engine {
   private evaluate(): number {
     let score = 0.0;
     for (let i = 0; i < 64; ++i) {
-      switch (this.board.at(i)) {
-        case 'P':
-          score += 1.0;
-          break;
-        case 'N':
-          score += 3.0;
-          break;
-        case 'B':
-          score += 3.0;
-          break;
-        case 'R':
-          score += 5.0;
-          break;
-        case 'Q':
-          score += 9.0;
-          break;
-        case 'p':
-          score -= 1.0;
-          break;
-        case 'n':
-          score -= 3.0;
-          break;
-        case 'b':
-          score -= 3.0;
-          break;
-        case 'r':
-          score -= 5.0;
-          break;
-        case 'q':
-          score -= 9.0;
-          break;
-      }
+      score += PIECE_VALUE[this.board.at(i)];
     }
     return score;
   }
