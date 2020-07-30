@@ -131,6 +131,8 @@ export class Engine {
     }
 
     const moves = this.moveGenerator.generate(this.board);
+    if (moves.length === 0 && !CheckChecker.isInCheck(this.board, this.board.isWhiteToMove)) return 0;
+
     moves.sort((a, b) => Math.abs(PIECE_VALUE[this.board.at(b.to)]) - Math.abs(PIECE_VALUE[this.board.at(a.to)]));
     let bestScore = -Infinity;
     for (let i = 0; i < moves.length; ++i) {
