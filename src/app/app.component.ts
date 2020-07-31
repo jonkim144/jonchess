@@ -47,6 +47,8 @@ export class AppComponent implements OnInit {
   highlightCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('legalMoveCanvas', { static: true })
   legalMoveCanvas: ElementRef<HTMLCanvasElement>;
+  @ViewChild('draggingCanvas', { static: true })
+  draggingCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('themeCanvas', { static: true })
   themeCanvas: ElementRef<HTMLCanvasElement>;
   private THEME_PICKER_SIZE: number = 50;
@@ -59,6 +61,7 @@ export class AppComponent implements OnInit {
   private pieceLayer: CanvasRenderingContext2D;
   private highlightLayer: CanvasRenderingContext2D;
   private legalMoveLayer: CanvasRenderingContext2D;
+  private draggingLayer: CanvasRenderingContext2D;
   private boardLayer: CanvasRenderingContext2D;
   private themeLayer: CanvasRenderingContext2D;
   private theme: string[];
@@ -73,12 +76,17 @@ export class AppComponent implements OnInit {
     this.pieceLayer = this.pieceCanvas.nativeElement.getContext('2d');
     this.highlightLayer = this.highlightCanvas.nativeElement.getContext('2d');
     this.legalMoveLayer = this.legalMoveCanvas.nativeElement.getContext('2d');
+    this.draggingLayer = this.draggingCanvas.nativeElement.getContext('2d');
     this.themeLayer = this.themeCanvas.nativeElement.getContext('2d');
     this.refreshTheme();
     this.renderBoard();
-    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handleMouseDownPiece = this.handleMouseDownPiece.bind(this);
+    this.handleMouseUp = this.handleMouseUp.bind(this);
+    this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseDownTheme = this.handleMouseDownTheme.bind(this);
-    this.legalMoveCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDown);
+    this.draggingCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDownPiece);
+    this.draggingCanvas.nativeElement.addEventListener('mouseup', this.handleMouseUp);
+    this.draggingCanvas.nativeElement.addEventListener('mousemove', this.handleMouseMove);
     this.themeCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDownTheme);
   }
 
@@ -195,6 +203,7 @@ export class AppComponent implements OnInit {
     this.board.fen = this.fenControl.value;
     this.engine.clearHistory();
     this.renderBoard();
+    this.setMessage(`${this.board.isWhiteToMove ? 'White' : 'Black'} to move`);
   }
 
   private clearHighlights(): void {
@@ -277,7 +286,16 @@ export class AppComponent implements OnInit {
     }
   }
 
-  private handleMouseDown(e: MouseEvent): void {
+  private isDragging: boolean = false;
+  private draggingPiece: HTMLImageElement;
+  private handleMouseMove(e: MouseEvent): void {
+    if (!this.isDragging) return;
+
+    this.draggingLayer.clearRect(0, 0, 400, 400);
+    this.draggingLayer.drawImage(this.draggingPiece, e.offsetX - 22, e.offsetY - 22);
+  }
+
+  private handleMouseDownPiece(e: MouseEvent): void {
     const x = Math.floor(e.offsetX / this.SQUARE_SIZE);
     const y = 7 - Math.floor(e.offsetY / this.SQUARE_SIZE);
     const candidate = x + y * 8;
@@ -287,9 +305,11 @@ export class AppComponent implements OnInit {
       }
       if (this.engine.tryMakeMove(this.selectedSquare, candidate)) {
         return this.handleMoveMade();
-      } else {
-        this.clearHighlights();
-        if (this.board.at(candidate) === '_') return;
+      }
+      this.clearHighlights();
+      if (this.board.at(candidate) === '_') {
+        this.isDragging = false;
+        return;
       }
     } else {
       if (this.board.at(candidate) === '_') return;
@@ -297,6 +317,29 @@ export class AppComponent implements OnInit {
     this.selectedSquare = candidate;
     this.highlightSquare(x, 7 - y);
     this.highlightLegalMoves(candidate);
+    this.isDragging = true;
+    this.renderPiece(candidate, '_');
+    this.draggingPiece = new Image();
+    this.draggingPiece.onload = () => {
+      this.draggingLayer.drawImage(this.draggingPiece, e.offsetX - 22, e.offsetY - 22);
+    };
+    this.draggingPiece.src = this.ASSET_MAP.get(this.board.at(candidate));
+  }
+
+  private handleMouseUp(e: MouseEvent): void {
+    this.isDragging = false;
+    const x = Math.floor(e.offsetX / this.SQUARE_SIZE);
+    const y = 7 - Math.floor(e.offsetY / this.SQUARE_SIZE);
+    const candidate = x + y * 8;
+    this.draggingLayer.clearRect(0, 0, 400, 400);
+    if (!~this.selectedSquare) return;
+
+    if (this.engine.tryMakeMove(this.selectedSquare, candidate)) {
+      return this.handleMoveMade();
+    } else {
+      this.renderBoard(this.selectedSquare);
+      if (this.selectedSquare !== candidate) this.clearHighlights();
+    }
   }
 
   private renderPiece(square: number, piece: string): void {
