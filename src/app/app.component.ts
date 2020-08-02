@@ -132,7 +132,7 @@ export class AppComponent implements OnInit {
   }
 
   private refreshTheme(): void {
-    this.theme = JSON.parse(localStorage.getItem('theme')) ?? this.THEMES[0];
+    this.theme = JSON.parse(localStorage.getItem('theme')) || this.THEMES[0];
     const [whiteColor, blackColor] = this.theme;
     this.themeLayer.clearRect(0, 0, this.THEME_PICKER_SIZE, this.THEME_PICKER_SIZE);
     this.themeLayer.beginPath();

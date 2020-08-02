@@ -32,7 +32,8 @@ const shuffle = (a) => {
 export enum GameState {
   WhiteWins,
   BlackWins,
-  Draw,
+  DrawByRepetition,
+  Stalemate,
   WhiteToMove,
   BlackToMove,
 }
@@ -43,6 +44,7 @@ export class Engine {
   private redoStack: IMover[] = [];
   private moveGenerator: MoveGenerator = new MoveGenerator();
   private depth: number = 5;
+  private positionCounts = new Map<bigint, number>();
 
   constructor(board: Board) {
     this.board = board;
@@ -52,6 +54,8 @@ export class Engine {
     if (!this.history.length) return;
 
     const toUndo = this.history.pop();
+    const old = this.positionCounts.get(this.board.hash);
+    this.positionCounts.set(this.board.hash, old - 1);
     toUndo.undo(this.board);
     this.redoStack.push(toUndo);
   }
@@ -59,12 +63,12 @@ export class Engine {
   redo() {
     if (!this.redoStack.length) return;
 
-    const toRedo = this.redoStack.pop();
-    toRedo.move(this.board);
-    this.history.push(toRedo);
+    this.makeMove(this.redoStack.pop());
   }
 
   clearHistory(): void {
+    this.positionCounts.clear();
+    this.positionCounts.set(this.board.hash, 1);
     this.history.length = 0;
     this.redoStack.length = 0;
   }
@@ -74,13 +78,14 @@ export class Engine {
   }
 
   get gameState(): GameState {
+    if (this.positionCounts.get(this.board.hash) >= 3) return GameState.DrawByRepetition;
     if (this.moveGenerator.generate(this.board).length) {
       return this.board.isWhiteToMove ? GameState.WhiteToMove : GameState.BlackToMove;
     }
     if (CheckChecker.isInCheck(this.board, this.board.isWhiteToMove)) {
       return this.board.isWhiteToMove ? GameState.BlackWins : GameState.WhiteWins;
     }
-    return GameState.Draw;
+    return GameState.Stalemate;
   }
 
   getLegalMoves(from: number): IMover[] {
@@ -91,13 +96,22 @@ export class Engine {
     const moves = this.moveGenerator.generate(this.board, from, to);
     if (!moves.length) return false;
 
-    moves[0].move(this.board);
-    this.history.push(moves[0]);
+    this.makeMove(moves[0]);
     this.redoStack.length = 0;
     return true;
   }
 
+  private makeMove(mover: IMover): void {
+    mover.move(this.board);
+    this.history.push(mover);
+    if (!this.positionCounts.has(this.board.hash)) this.positionCounts.set(this.board.hash, 0);
+    const old = this.positionCounts.get(this.board.hash);
+    this.positionCounts.set(this.board.hash, old + 1);
+  }
+
   getBestMove(): Promise<IMover | undefined> {
+    if (this.positionCounts.get(this.board.hash) >= 3) return Promise.resolve(undefined);
+
     return new Promise((resolve) => {
       setTimeout(() => {
         const moves = shuffle(this.moveGenerator.generate(this.board));
