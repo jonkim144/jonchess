@@ -109,8 +109,19 @@ export class Engine {
     this.positionCounts.set(this.board.hash, old + 1);
   }
 
+  private get pieceCount(): number {
+    let count = 0;
+    for (let i = 0; i < 64; ++i) {
+      if (this.board.at(i) !== '_') ++count;
+    }
+    return count;
+  }
+
   getBestMove(): Promise<IMover | undefined> {
     if (this.positionCounts.get(this.board.hash) >= 3) return Promise.resolve(undefined);
+
+    if (this.pieceCount < 8) this.depth = 7;
+    else if (this.pieceCount < 16) this.depth = 6;
 
     return new Promise((resolve) => {
       setTimeout(() => {
