@@ -2,6 +2,7 @@ import { IMover } from './mover';
 import { Board } from './board';
 import { MoveGenerator } from './move_generator';
 import { CheckChecker } from './check_checker';
+import { Book } from './book';
 
 const PIECE_VALUE = {
   K: 0,
@@ -38,6 +39,8 @@ export enum GameState {
   BlackToMove,
 }
 
+const OPENING_BOOKS = ['./assets/openings.pgn'];
+
 export class Engine {
   private board: Board;
   private history: IMover[] = [];
@@ -46,9 +49,11 @@ export class Engine {
   private depth: number = 5;
   private positionCounts = new Map<bigint, number>();
   private transpositions: Map<bigint, Map<number, number>>;
+  private book: Book | undefined;
 
   constructor(board: Board) {
     this.board = board;
+    Book.parsePgn(...OPENING_BOOKS).then((book: Book) => (this.book = book));
   }
 
   undo() {
@@ -120,6 +125,10 @@ export class Engine {
 
   getBestMove(): Promise<IMover | undefined> {
     if (this.positionCounts.get(this.board.hash) >= 3) return Promise.resolve(undefined);
+    if (this.book && this.book.hasMoves(this.board.hash)) {
+      const [bookMover] = shuffle(this.book.getMoves(this.board.hash));
+      return Promise.resolve(bookMover);
+    }
 
     if (this.pieceCount < 8) this.depth = 7;
     else if (this.pieceCount < 16) this.depth = 6;

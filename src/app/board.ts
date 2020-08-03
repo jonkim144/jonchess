@@ -1,3 +1,5 @@
+import { Algebraic } from './algebraic';
+
 const bytesToBigInt = (bytes) => {
   let result = 0n;
   const n = bytes.length;
@@ -28,12 +30,20 @@ const getRandomBigInts = (count: number) => {
 };
 
 class Zobrist {
-  private readonly pieceKeys: Map<number, Map<string, bigint>>;
-  private readonly castlingKeys: Map<string, bigint>;
-  private readonly sideToMoveKeys: Map<boolean, bigint>;
-  private readonly enPassantKeys: Map<number, bigint>;
+  private static initialized: boolean = false;
+  private static pieceKeys: Map<number, Map<string, bigint>>;
+  private static castlingKeys: Map<string, bigint>;
+  private static sideToMoveKeys: Map<boolean, bigint>;
+  private static enPassantKeys: Map<number, bigint>;
 
   constructor() {
+    if (Zobrist.initialized) return;
+
+    Zobrist.initialized = true;
+    Zobrist.initialize();
+  }
+
+  static initialize(): void {
     this.pieceKeys = new Map<number, Map<string, bigint>>();
     for (let i = 0; i < 64; ++i) {
       const map = new Map<string, bigint>();
@@ -59,19 +69,19 @@ class Zobrist {
   }
 
   getPieceKey(location: number, piece: string): bigint {
-    return this.pieceKeys.get(location).get(piece);
+    return Zobrist.pieceKeys.get(location).get(piece);
   }
 
   getCastlingKey(code: string): bigint {
-    return this.castlingKeys.get(code);
+    return Zobrist.castlingKeys.get(code);
   }
 
   getSideToMoveKey(isWhite: boolean): bigint {
-    return this.sideToMoveKeys.get(isWhite);
+    return Zobrist.sideToMoveKeys.get(isWhite);
   }
 
   getEnPassantKey(location: number): bigint {
-    return this.enPassantKeys.get(location);
+    return Zobrist.enPassantKeys.get(location);
   }
 }
 
@@ -81,8 +91,8 @@ export class Board {
   private castling_: string = 'KQkq';
   private enpassant: number = -1;
   private kingPosition = new Map<string, number>();
-  private zobrist = new Zobrist();
   private hash_ = 0n;
+  private zobrist: Zobrist = new Zobrist();
 
   constructor(fen: string) {
     this.fen = fen;
@@ -155,14 +165,8 @@ export class Board {
       rows.push(row);
     }
     return `${rows.reverse().join('/')} ${this.isWhiteToMove_ ? 'w' : 'b'} ${this.castling} ${
-      -1 === this.enpassant ? '-' : this.toAlgebraic(this.enpassant)
+      -1 === this.enpassant ? '-' : Algebraic.to(this.enpassant)
     }`;
-  }
-
-  private toAlgebraic(location: number): string {
-    const file = location % 8;
-    const rank = Math.floor(location / 8);
-    return `${String.fromCharCode('a'.charCodeAt(0) + file)}${rank + 1}`;
   }
 
   get hash(): bigint {
