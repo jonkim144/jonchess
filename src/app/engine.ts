@@ -45,6 +45,7 @@ export class Engine {
   private moveGenerator: MoveGenerator = new MoveGenerator();
   private depth: number = 5;
   private positionCounts = new Map<bigint, number>();
+  private transpositions: Map<bigint, Map<number, number>>;
 
   constructor(board: Board) {
     this.board = board;
@@ -131,6 +132,7 @@ export class Engine {
         let bestScore = -Infinity;
         let alpha = -Infinity;
         let beta = Infinity;
+        this.transpositions = new Map<bigint, Map<number, number>>();
         for (let i = 0; i < moves.length; ++i) {
           const move = moves[i];
           move.move(this.board);
@@ -155,6 +157,11 @@ export class Engine {
       return (this.board.isWhiteToMove ? 1 : -1) * this.evaluate();
     }
 
+    if (this.transpositions.has(this.board.hash)) {
+      const t = this.transpositions.get(this.board.hash);
+      if (t.has(depth)) return t.get(depth);
+    }
+
     const moves = this.moveGenerator.generate(this.board);
     if (moves.length === 0 && !CheckChecker.isInCheck(this.board, this.board.isWhiteToMove)) return 0;
 
@@ -173,6 +180,10 @@ export class Engine {
         if (alpha >= beta) break;
       }
     }
+    if (!this.transpositions.has(this.board.hash)) {
+      this.transpositions.set(this.board.hash, new Map<number, number>());
+    }
+    this.transpositions.get(this.board.hash).set(depth, bestScore);
     return bestScore;
   }
 
