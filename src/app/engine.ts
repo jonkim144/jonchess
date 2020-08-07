@@ -3,6 +3,7 @@ import { Board } from './board';
 import { MoveGenerator } from './move_generator';
 import { CheckChecker } from './check_checker';
 import { Book } from './book';
+import LRU from 'lru-cache';
 
 const PIECE_VALUE = {
   K: 0,
@@ -40,6 +41,7 @@ export enum GameState {
 }
 
 const OPENING_BOOKS = ['./assets/openings.pgn'];
+const MAX_CACHE_SIZE = 32 * 1024 * 1024;
 
 export class Engine {
   private board: Board;
@@ -48,7 +50,7 @@ export class Engine {
   private moveGenerator: MoveGenerator = new MoveGenerator();
   private depth: number = 5;
   private positionCounts = new Map<bigint, number>();
-  private transpositions: Map<bigint, Map<number, number>>;
+  private transpositions = new LRU(MAX_CACHE_SIZE);
   private book: Book | undefined;
 
   constructor(board: Board) {
@@ -141,7 +143,6 @@ export class Engine {
         let bestScore = -Infinity;
         let alpha = -Infinity;
         let beta = Infinity;
-        this.transpositions = new Map<bigint, Map<number, number>>();
         for (let i = 0; i < moves.length; ++i) {
           const move = moves[i];
           move.move(this.board);
