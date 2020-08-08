@@ -5,6 +5,7 @@ export interface IMover {
   undo(board: Board): void;
   readonly from: number;
   readonly to: number;
+  readonly promotion: string;
 }
 
 export class Mover implements IMover {
@@ -46,6 +47,10 @@ export class Mover implements IMover {
   get to(): number {
     return this.to_;
   }
+
+  get promotion(): string {
+    return '';
+  }
 }
 
 export class RookMover implements IMover {
@@ -70,6 +75,10 @@ export class RookMover implements IMover {
 
   get to(): number {
     return this.rookMover.to;
+  }
+
+  get promotion(): string {
+    return '';
   }
 }
 
@@ -98,6 +107,10 @@ export class KingMover implements IMover {
   get to(): number {
     return this.kingMover.to;
   }
+
+  get promotion(): string {
+    return '';
+  }
 }
 
 export class DoublePushMover implements IMover {
@@ -119,6 +132,10 @@ export class DoublePushMover implements IMover {
 
   get to(): number {
     return this.pawnMover.to;
+  }
+
+  get promotion(): string {
+    return '';
   }
 }
 
@@ -153,6 +170,10 @@ export class CastlingMover implements IMover {
   get to(): number {
     return this.kingMover.to;
   }
+
+  get promotion(): string {
+    return '';
+  }
 }
 
 export class EnPassantMover implements IMover {
@@ -185,13 +206,17 @@ export class EnPassantMover implements IMover {
   get to(): number {
     return this.pawnMover.to;
   }
+
+  get promotion(): string {
+    return '';
+  }
 }
 
 export class PromotionMover implements IMover {
   private readonly pawnMover: Mover;
   private pawn: string;
 
-  constructor(from: number, to: number, private readonly promotion: string) {
+  constructor(from: number, to: number, private readonly promotion_: string) {
     this.pawnMover = new Mover(from, to);
   }
 
@@ -212,5 +237,9 @@ export class PromotionMover implements IMover {
 
   get to(): number {
     return this.pawnMover.to;
+  }
+
+  get promotion(): string {
+    return this.promotion_;
   }
 }

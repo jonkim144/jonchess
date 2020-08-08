@@ -47,7 +47,7 @@ export class Engine {
   private history: IMover[] = [];
   private redoStack: IMover[] = [];
   private moveGenerator: MoveGenerator = new MoveGenerator();
-  private depth: number = 5;
+  private depth_: number = 5;
   private positionCounts = new Map<bigint, number>();
   private transpositions = new LRU(MAX_CACHE_SIZE);
   private book = new Book();
@@ -79,6 +79,14 @@ export class Engine {
     this.redoStack.length = 0;
   }
 
+  get depth(): number {
+    return this.depth_;
+  }
+
+  set depth(value: number) {
+    this.depth_ = value;
+  }
+
   get lastMove(): IMover {
     return this.history[this.history.length - 1];
   }
@@ -98,11 +106,12 @@ export class Engine {
     return this.moveGenerator.generate(this.board, from);
   }
 
-  tryMakeMove(from: number, to: number): boolean {
+  tryMakeMove(from: number, to: number, promo: string | undefined = undefined): boolean {
     const moves = this.moveGenerator.generate(this.board, from, to);
     if (!moves.length) return false;
 
-    this.makeMove(moves[0]);
+    const [mover] = moves.filter((m) => !promo || promo === m.promotion);
+    this.makeMove(mover);
     this.redoStack.length = 0;
     return true;
   }

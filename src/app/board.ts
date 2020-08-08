@@ -1,4 +1,12 @@
 import { Algebraic } from './algebraic';
+const isNode = typeof process !== 'undefined';
+let crypto;
+try {
+  crypto = require('crypto');
+} catch (e) {
+  crypto = window.crypto;
+}
+const randomBytes = (size: number) => (isNode ? crypto.randomBytes(size) : crypto.getRandomValues(new Uint8Array(size)));
 
 const bytesToBigInt = (bytes) => {
   let result = 0n;
@@ -15,10 +23,6 @@ const bytesToBigInt = (bytes) => {
   }
 
   return result;
-};
-
-const randomBytes = (size) => {
-  return crypto.getRandomValues(new Uint8Array(size));
 };
 
 const getRandomBigInts = (count: number) => {
