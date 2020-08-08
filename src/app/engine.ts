@@ -40,7 +40,6 @@ export enum GameState {
   BlackToMove,
 }
 
-const OPENING_BOOKS = ['./assets/openings.pgn'];
 const MAX_CACHE_SIZE = 32 * 1024 * 1024;
 
 export class Engine {
@@ -51,11 +50,10 @@ export class Engine {
   private depth: number = 5;
   private positionCounts = new Map<bigint, number>();
   private transpositions = new LRU(MAX_CACHE_SIZE);
-  private book: Book | undefined;
+  private book = new Book();
 
   constructor(board: Board) {
     this.board = board;
-    Book.parsePgn(...OPENING_BOOKS).then((book: Book) => (this.book = book));
   }
 
   undo() {
