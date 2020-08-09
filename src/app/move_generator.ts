@@ -80,10 +80,10 @@ export class MoveGenerator {
       if (!this.isWhitePiece(board.at(to))) this.addMove(board, moves, new KingMover(new Mover(location, to), 'KQ'));
     });
     if (~board.castling.indexOf('K')) {
-      if (board.at(5) === '_' && board.at(6) === '_' && !this.isInCheck(board, true)) {
+      if (board.at(5) === '_' && board.at(6) === '_' && !CheckChecker.isInCheck(board, true)) {
         const intermediary = new KingMover(new Mover(location, 5), 'KQ');
         intermediary.move(board);
-        const isCastlingThroughCheck = this.isInCheck(board, true);
+        const isCastlingThroughCheck = CheckChecker.isInCheck(board, true);
         intermediary.undo(board);
         if (!isCastlingThroughCheck) {
           this.addMove(board, moves, new CastlingMover(new KingMover(new Mover(location, 6), 'KQ'), new Mover(7, 5)));
@@ -91,10 +91,10 @@ export class MoveGenerator {
       }
     }
     if (~board.castling.indexOf('Q')) {
-      if (board.at(3) === '_' && board.at(2) === '_' && board.at(1) === '_' && !this.isInCheck(board, true)) {
+      if (board.at(3) === '_' && board.at(2) === '_' && board.at(1) === '_' && !CheckChecker.isInCheck(board, true)) {
         const intermediary = new KingMover(new Mover(location, 3), 'KQ');
         intermediary.move(board);
-        const isCastlingThroughCheck = this.isInCheck(board, true);
+        const isCastlingThroughCheck = CheckChecker.isInCheck(board, true);
         intermediary.undo(board);
         if (!isCastlingThroughCheck) {
           this.addMove(board, moves, new CastlingMover(new KingMover(new Mover(location, 2), 'KQ'), new Mover(0, 3)));
@@ -108,10 +108,10 @@ export class MoveGenerator {
       if (!this.isBlackPiece(board.at(to))) this.addMove(board, moves, new KingMover(new Mover(location, to), 'kq'));
     });
     if (~board.castling.indexOf('k')) {
-      if (board.at(61) === '_' && board.at(62) === '_' && !this.isInCheck(board, false)) {
+      if (board.at(61) === '_' && board.at(62) === '_' && !CheckChecker.isInCheck(board, false)) {
         const intermediary = new KingMover(new Mover(location, 61), 'kq');
         intermediary.move(board);
-        const isCastlingThroughCheck = this.isInCheck(board, false);
+        const isCastlingThroughCheck = CheckChecker.isInCheck(board, false);
         intermediary.undo(board);
         if (!isCastlingThroughCheck) {
           this.addMove(board, moves, new CastlingMover(new KingMover(new Mover(location, 62), 'kq'), new Mover(63, 61)));
@@ -119,10 +119,10 @@ export class MoveGenerator {
       }
     }
     if (~board.castling.indexOf('q')) {
-      if (board.at(59) === '_' && board.at(58) === '_' && board.at(57) === '_' && !this.isInCheck(board, false)) {
+      if (board.at(59) === '_' && board.at(58) === '_' && board.at(57) === '_' && !CheckChecker.isInCheck(board, false)) {
         const intermediary = new KingMover(new Mover(location, 59), 'kq');
         intermediary.move(board);
-        const isCastlingThroughCheck = this.isInCheck(board, false);
+        const isCastlingThroughCheck = CheckChecker.isInCheck(board, false);
         intermediary.undo(board);
         if (!isCastlingThroughCheck) {
           this.addMove(board, moves, new CastlingMover(new KingMover(new Mover(location, 58), 'kq'), new Mover(56, 59)));
@@ -215,16 +215,14 @@ export class MoveGenerator {
     });
   }
 
-  private isInCheck(board: Board, forWhite: boolean): boolean {
-    return CheckChecker.isInCheck(board, forWhite);
-  }
-
   private addMove(board: Board, moves: IMover[], mover: IMover): void {
     const forWhite = board.isWhiteToMove;
     mover.move(board);
-    const isInCheck = this.isInCheck(board, forWhite);
+    const isInCheck = CheckChecker.isInCheck(board, forWhite);
+    const givesCheck = CheckChecker.isInCheck(board, !forWhite);
     mover.undo(board);
     if (!isInCheck) {
+      mover.givesCheck = givesCheck;
       moves.push(mover);
     }
   }

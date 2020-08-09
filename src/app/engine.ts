@@ -5,21 +5,21 @@ import { CheckChecker } from './check_checker';
 import { Book } from './book';
 import LRU from 'lru-cache';
 
-const PIECE_VALUE = {
-  K: 0,
-  k: 0,
-  P: 1,
-  p: -1,
-  N: 3,
-  n: -3,
-  B: 3,
-  b: -3,
-  R: 5,
-  r: -5,
-  Q: 9,
-  q: -9,
-  _: 0,
-};
+const PIECE_VALUE = new Map<string, number>([
+  ['K', 1600],
+  ['k', -1600],
+  ['P', 100],
+  ['p', -100],
+  ['N', 300],
+  ['n', -300],
+  ['B', 325],
+  ['b', -325],
+  ['R', 500],
+  ['r', -500],
+  ['Q', 900],
+  ['q', -900],
+  ['_', 0],
+]);
 
 const shuffle = (a) => {
   for (let i = a.length - 1; i > 0; --i) {
@@ -40,7 +40,17 @@ export enum GameState {
   BlackToMove,
 }
 
+enum NodeType {
+  EXACT,
+  ALPHA,
+  BETA,
+}
+
 const MAX_CACHE_SIZE = 32 * 1024 * 1024;
+
+class Transposition {
+  constructor(readonly score: number, readonly depth: number, readonly nodeType: NodeType, readonly bestMove: number = -1) {}
+}
 
 export class Engine {
   private board: Board;
@@ -134,35 +144,48 @@ export class Engine {
 
   getBestMove(): Promise<IMover | undefined> {
     if (this.positionCounts.get(this.board.hash) >= 3) return Promise.resolve(undefined);
-    if (this.book && this.book.hasMoves(this.board.hash)) {
+    if (this.book.hasMoves(this.board.hash)) {
       const [bookMover] = shuffle(this.book.getMoves(this.board.hash));
       return Promise.resolve(bookMover);
     }
-
-    if (this.pieceCount < 8) this.depth = 7;
-    else if (this.pieceCount < 16) this.depth = 6;
+    if (this.pieceCount <= 16) this.depth = 6;
+    if (this.pieceCount <= 8) this.depth = 7;
 
     return new Promise((resolve) => {
       setTimeout(() => {
         const moves = shuffle(this.moveGenerator.generate(this.board));
-        moves.sort((a, b) => Math.abs(PIECE_VALUE[this.board.at(b.to)]) - Math.abs(PIECE_VALUE[this.board.at(a.to)]));
         let [bestMove] = moves;
-        let bestScore = -Infinity;
-        let alpha = -Infinity;
-        let beta = Infinity;
-        for (let i = 0; i < moves.length; ++i) {
-          const move = moves[i];
-          move.move(this.board);
-          const score = -this.findBestMove(this.depth, -beta, -alpha);
-          move.undo(this.board);
-          if (score > bestScore) {
-            bestScore = score;
-            bestMove = move;
+        for (let d = 5; d <= this.depth; ++d) {
+          const hashMove = this.transpositions.has(this.board.hash) ? this.transpositions.get(this.board.hash).bestMove : undefined;
+          moves.sort((a, b) => {
+            if (hashMove) {
+              if (hashMove.from === a.from && hashMove.to === a.to) return -1;
+              if (hashMove.from === b.from && hashMove.to === b.to) return 1;
+            }
+            const mvv = Math.abs(PIECE_VALUE.get(this.board.at(b.to))) - Math.abs(PIECE_VALUE.get(this.board.at(a.to)));
+            if (mvv) return mvv;
+
+            const lva = Math.abs(PIECE_VALUE.get(this.board.at(a.from))) - Math.abs(PIECE_VALUE.get(this.board.at(b.from)));
+            if (lva) return lva;
+
+            if (a.givesCheck && !b.givesCheck) return -1;
+            if (!a.givesCheck && b.givesCheck) return 1;
+
+            return 0;
+          });
+          let alpha = -Infinity;
+          let beta = Infinity;
+          for (const move of moves) {
+            let score;
+            move.move(this.board);
+            score = -this.findBestMove(d, -beta, -alpha);
+            move.undo(this.board);
+            if (score > alpha) {
+              bestMove = move;
+              alpha = score;
+            }
           }
-          if (score > alpha) {
-            alpha = score;
-            if (alpha >= beta) break;
-          }
+          this.transpositions.set(this.board.hash, new Transposition(alpha, d + 1, NodeType.EXACT, bestMove));
         }
         resolve(bestMove);
       }, 50);
@@ -170,44 +193,73 @@ export class Engine {
   }
 
   private findBestMove(depth: number, alpha: number, beta: number): number {
+    if (this.transpositions.has(this.board.hash)) {
+      const t = this.transpositions.get(this.board.hash);
+      if (t.depth >= depth) {
+        switch (t.nodeType) {
+          case NodeType.EXACT:
+            return t.score;
+          case NodeType.ALPHA:
+            if (t.score <= alpha) return alpha;
+            break;
+          case NodeType.BETA:
+            if (t.score >= beta) return beta;
+            break;
+          default:
+            break;
+        }
+      }
+    }
     if (depth === 0) {
       return (this.board.isWhiteToMove ? 1 : -1) * this.evaluate();
     }
 
-    if (this.transpositions.has(this.board.hash)) {
-      const t = this.transpositions.get(this.board.hash);
-      if (t.has(depth)) return t.get(depth);
+    const moves = this.moveGenerator.generate(this.board);
+    if (moves.length === 0) {
+      if (!CheckChecker.isInCheck(this.board, this.board.isWhiteToMove)) {
+        return 0;
+      }
+      return alpha;
     }
 
-    const moves = this.moveGenerator.generate(this.board);
-    if (moves.length === 0 && !CheckChecker.isInCheck(this.board, this.board.isWhiteToMove)) return 0;
+    moves.sort((a, b) => {
+      const mvv = Math.abs(PIECE_VALUE.get(this.board.at(b.to))) - Math.abs(PIECE_VALUE.get(this.board.at(a.to)));
+      if (mvv) return mvv;
 
-    moves.sort((a, b) => Math.abs(PIECE_VALUE[this.board.at(b.to)]) - Math.abs(PIECE_VALUE[this.board.at(a.to)]));
-    let bestScore = -Infinity;
-    for (let i = 0; i < moves.length; ++i) {
-      const move = moves[i];
+      const lva = Math.abs(PIECE_VALUE.get(this.board.at(a.from))) - Math.abs(PIECE_VALUE.get(this.board.at(b.from)));
+      if (lva) return lva;
+
+      if (a.givesCheck && !b.givesCheck) return -1;
+      if (!a.givesCheck && b.givesCheck) return 1;
+
+      return 0;
+    });
+
+    let raisedAlpha = false;
+    let bestMove;
+    for (const move of moves) {
       move.move(this.board);
-      const score = -this.findBestMove(depth - 1, -beta, -alpha);
+      let score;
+      score = -this.findBestMove(depth - 1, -beta, -alpha);
       move.undo(this.board);
-      if (score > bestScore) {
-        bestScore = score;
+      if (score >= beta) {
+        this.transpositions.set(this.board.hash, new Transposition(beta, depth, NodeType.BETA));
+        return beta;
       }
       if (score > alpha) {
+        bestMove = move;
         alpha = score;
-        if (alpha >= beta) break;
+        raisedAlpha = true;
       }
     }
-    if (!this.transpositions.has(this.board.hash)) {
-      this.transpositions.set(this.board.hash, new Map<number, number>());
-    }
-    this.transpositions.get(this.board.hash).set(depth, bestScore);
-    return bestScore;
+    this.transpositions.set(this.board.hash, new Transposition(alpha, depth, raisedAlpha ? NodeType.EXACT : NodeType.ALPHA, bestMove));
+    return alpha;
   }
 
   private evaluate(): number {
     let score = 0.0;
     for (let i = 0; i < 64; ++i) {
-      score += PIECE_VALUE[this.board.at(i)];
+      score += PIECE_VALUE.get(this.board.at(i));
     }
     return score;
   }

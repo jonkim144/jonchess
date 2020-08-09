@@ -6,12 +6,15 @@ export interface IMover {
   readonly from: number;
   readonly to: number;
   readonly promotion: string;
+  givesCheck: boolean;
+  readonly isCapture: boolean;
 }
 
 export class Mover implements IMover {
   private captured: string;
   private oldEnPassantTarget: number;
   private oldCastling: string;
+  private givesCheck_: boolean = false;
 
   constructor(private readonly from_: number, private readonly to_: number) {}
 
@@ -51,10 +54,23 @@ export class Mover implements IMover {
   get promotion(): string {
     return '';
   }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return this.captured !== '_';
+  }
 }
 
 export class RookMover implements IMover {
   private oldCastling: string;
+  private givesCheck_: boolean = false;
 
   constructor(private readonly rookMover: IMover, private readonly castlingToClear: string) {}
 
@@ -80,10 +96,23 @@ export class RookMover implements IMover {
   get promotion(): string {
     return '';
   }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return this.rookMover.isCapture;
+  }
 }
 
 export class KingMover implements IMover {
   private oldCastling: string;
+  private givesCheck_: boolean = false;
 
   constructor(private readonly kingMover: IMover, private readonly castlingToClear: string) {}
 
@@ -111,9 +140,23 @@ export class KingMover implements IMover {
   get promotion(): string {
     return '';
   }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return this.kingMover.isCapture;
+  }
 }
 
 export class DoublePushMover implements IMover {
+  private givesCheck_: boolean = false;
+
   constructor(private readonly pawnMover: Mover) {}
 
   move(board: Board): void {
@@ -137,9 +180,22 @@ export class DoublePushMover implements IMover {
   get promotion(): string {
     return '';
   }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return false;
+  }
 }
 
 export class CastlingMover implements IMover {
+  private givesCheck_: boolean = false;
   private oldCastling: string;
   private oldSideToMove: boolean;
   private oldEnPassant: number;
@@ -174,9 +230,22 @@ export class CastlingMover implements IMover {
   get promotion(): string {
     return '';
   }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return false;
+  }
 }
 
 export class EnPassantMover implements IMover {
+  private givesCheck_: boolean = false;
   private pawnMover: Mover;
   private captured: string;
   private capturedLocation: number;
@@ -210,9 +279,22 @@ export class EnPassantMover implements IMover {
   get promotion(): string {
     return '';
   }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return true;
+  }
 }
 
 export class PromotionMover implements IMover {
+  private givesCheck_: boolean = false;
   private readonly pawnMover: Mover;
   private pawn: string;
 
@@ -241,5 +323,17 @@ export class PromotionMover implements IMover {
 
   get promotion(): string {
     return this.promotion_;
+  }
+
+  set givesCheck(value: boolean) {
+    this.givesCheck_ = value;
+  }
+
+  get givesCheck(): boolean {
+    return this.givesCheck_;
+  }
+
+  get isCapture(): boolean {
+    return this.pawnMover.isCapture;
   }
 }
