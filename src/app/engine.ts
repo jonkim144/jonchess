@@ -49,7 +49,7 @@ enum NodeType {
 const MAX_CACHE_SIZE = 32 * 1024 * 1024;
 
 class Transposition {
-  constructor(readonly score: number, readonly depth: number, readonly nodeType: NodeType, readonly bestMove: number = -1) {}
+  constructor(readonly score: number, readonly depth: number, readonly nodeType: NodeType, readonly bestMove: IMover) {}
 }
 
 export class Engine {
@@ -193,8 +193,8 @@ export class Engine {
   }
 
   private findBestMove(depth: number, alpha: number, beta: number): number {
-    if (this.transpositions.has(this.board.hash)) {
-      const t = this.transpositions.get(this.board.hash);
+    const t = this.transpositions.get(this.board.hash);
+    if (t) {
       if (t.depth >= depth) {
         switch (t.nodeType) {
           case NodeType.EXACT:
@@ -222,7 +222,12 @@ export class Engine {
       return alpha;
     }
 
+    const hashMove = t ? t.bestMove : undefined;
     moves.sort((a, b) => {
+      if (hashMove) {
+        if (a.from === hashMove.from && a.to === hashMove.to) return -1;
+        if (b.from === hashMove.from && b.to === hashMove.to) return 1;
+      }
       const mvv = Math.abs(PIECE_VALUE.get(this.board.at(b.to))) - Math.abs(PIECE_VALUE.get(this.board.at(a.to)));
       if (mvv) return mvv;
 
@@ -243,7 +248,7 @@ export class Engine {
       score = -this.findBestMove(depth - 1, -beta, -alpha);
       move.undo(this.board);
       if (score >= beta) {
-        this.transpositions.set(this.board.hash, new Transposition(beta, depth, NodeType.BETA));
+        this.transpositions.set(this.board.hash, new Transposition(beta, depth, NodeType.BETA, move));
         return beta;
       }
       if (score > alpha) {
