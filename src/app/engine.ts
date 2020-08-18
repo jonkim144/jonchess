@@ -12,8 +12,8 @@ const PIECE_VALUE = new Map<string, number>([
   ['p', -100],
   ['N', 300],
   ['n', -300],
-  ['B', 325],
-  ['b', -325],
+  ['B', 305],
+  ['b', -305],
   ['R', 500],
   ['r', -500],
   ['Q', 900],
@@ -155,7 +155,7 @@ export class Engine {
       setTimeout(() => {
         const moves = shuffle(this.moveGenerator.generate(this.board));
         let [bestMove] = moves;
-        for (let d = 5; d <= this.depth; ++d) {
+        for (let d = 1; d <= this.depth; d += 2) {
           const hashMove = this.transpositions.has(this.board.hash) ? this.transpositions.get(this.board.hash).bestMove : undefined;
           moves.sort((a, b) => {
             if (hashMove) {
