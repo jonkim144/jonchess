@@ -3,6 +3,9 @@ import { FormControl } from '@angular/forms';
 import { Board } from './board';
 import { Engine, GameState } from './engine';
 import { MoveGenerator } from './move_generator';
+import { Meta } from '@angular/platform-browser';
+
+const BOARD_OFFSET = [-7, -70];
 
 @Component({
   selector: 'app-root',
@@ -24,7 +27,7 @@ export class AppComponent implements OnInit {
     ['K', '/assets/Chess_klt45.svg'],
     ['P', '/assets/Chess_plt45.svg'],
   ]);
-  private SQUARE_SIZE = 50;
+  private SQUARE_SIZE = 45;
   private START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   private THEMES: string[][] = [
     ['#c8c2ac', '#67625f'],
@@ -51,7 +54,6 @@ export class AppComponent implements OnInit {
   draggingCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('themeCanvas', { static: true })
   themeCanvas: ElementRef<HTMLCanvasElement>;
-  private THEME_PICKER_SIZE: number = 50;
   fenControl = new FormControl(this.START_FEN);
   debugMode: boolean = false;
   perftControl = new FormControl(0);
@@ -68,8 +70,12 @@ export class AppComponent implements OnInit {
   private board: Board;
   private selectedSquare: number = -1;
   private engine: Engine;
+  private flipped: boolean = false;
+
+  constructor(private readonly metaService: Meta) {}
 
   ngOnInit() {
+    this.metaService.addTags([{ name: 'viewport', content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0' }]);
     this.board = new Board(this.fenControl.value);
     this.engine = new Engine(this.board);
     this.boardLayer = this.boardCanvas.nativeElement.getContext('2d');
@@ -84,37 +90,65 @@ export class AppComponent implements OnInit {
     this.handleMouseUp = this.handleMouseUp.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseDownTheme = this.handleMouseDownTheme.bind(this);
-    this.draggingCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDownPiece);
-    this.draggingCanvas.nativeElement.addEventListener('mouseup', this.handleMouseUp);
-    this.draggingCanvas.nativeElement.addEventListener('mousemove', this.handleMouseMove);
-    this.themeCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDownTheme);
+    this.handleTouchStart = this.handleTouchStart.bind(this);
+    this.handleTouchEnd = this.handleTouchEnd.bind(this);
+    this.handleTouchMove = this.handleTouchMove.bind(this);
+    this.draggingCanvas.nativeElement.addEventListener('touchstart', this.handleTouchStart, false);
+    this.draggingCanvas.nativeElement.addEventListener('touchmove', this.handleTouchMove, false);
+    this.draggingCanvas.nativeElement.addEventListener('touchend', this.handleTouchEnd, false);
+    this.draggingCanvas.nativeElement.addEventListener('touchcancel', this.handleTouchEnd, false);
+    this.draggingCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDownPiece, false);
+    this.draggingCanvas.nativeElement.addEventListener('mouseup', this.handleMouseUp, false);
+    this.draggingCanvas.nativeElement.addEventListener('mousemove', this.handleMouseMove, false);
+    this.themeCanvas.nativeElement.addEventListener('mousedown', this.handleMouseDownTheme, false);
   }
 
   @HostListener('document:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent) {
-    let oldFen: string;
     switch (event.key) {
       case 'ArrowLeft':
-        oldFen = this.board.fen;
-        this.engine.undo();
-        if (this.board.fen !== oldFen) {
-          this.handleMoveMade();
-        }
+        this.undoMove();
         break;
       case 'ArrowRight':
-        oldFen = this.board.fen;
-        this.engine.redo();
-        if (this.board.fen !== oldFen) {
-          this.handleMoveMade();
-        }
+        this.redoMove();
         break;
       default:
         break;
     }
   }
 
+  private redoMove() {
+    const oldFen = this.board.fen;
+    this.engine.redo();
+    if (this.board.fen !== oldFen) {
+      this.handleMoveMade();
+    }
+  }
+
+  private undoMove() {
+    const oldFen = this.board.fen;
+    this.engine.undo();
+    if (this.board.fen !== oldFen) {
+      this.handleMoveMade();
+    }
+  }
+
   private setMessage(message: string): void {
     this.messageControl.setValue(message);
+  }
+
+  handleClickUndo() {
+    this.undoMove();
+  }
+
+  handleClickRedo() {
+    this.redoMove();
+  }
+
+  handleClickFlip() {
+    this.flipped = !this.flipped;
+    this.renderBoard();
+    this.clearHighlights();
   }
 
   handleClickMakeMove(): void {
@@ -134,18 +168,18 @@ export class AppComponent implements OnInit {
   private refreshTheme(): void {
     this.theme = JSON.parse(localStorage.getItem('theme')) || this.THEMES[0];
     const [whiteColor, blackColor] = this.theme;
-    this.themeLayer.clearRect(0, 0, this.THEME_PICKER_SIZE, this.THEME_PICKER_SIZE);
+    this.themeLayer.clearRect(0, 0, this.SQUARE_SIZE, this.SQUARE_SIZE);
     this.themeLayer.beginPath();
     this.themeLayer.moveTo(0, 0);
-    this.themeLayer.lineTo(this.THEME_PICKER_SIZE, 0);
-    this.themeLayer.lineTo(0, this.THEME_PICKER_SIZE);
+    this.themeLayer.lineTo(this.SQUARE_SIZE, 0);
+    this.themeLayer.lineTo(0, this.SQUARE_SIZE);
     this.themeLayer.closePath();
     this.themeLayer.fillStyle = whiteColor;
     this.themeLayer.fill();
     this.themeLayer.beginPath();
-    this.themeLayer.moveTo(this.THEME_PICKER_SIZE, this.THEME_PICKER_SIZE);
-    this.themeLayer.lineTo(0, this.THEME_PICKER_SIZE);
-    this.themeLayer.lineTo(this.THEME_PICKER_SIZE, 0);
+    this.themeLayer.moveTo(this.SQUARE_SIZE, this.SQUARE_SIZE);
+    this.themeLayer.lineTo(0, this.SQUARE_SIZE);
+    this.themeLayer.lineTo(this.SQUARE_SIZE, 0);
     this.themeLayer.closePath();
     this.themeLayer.fillStyle = blackColor;
     this.themeLayer.fill();
@@ -217,7 +251,7 @@ export class AppComponent implements OnInit {
     const lastMove = this.engine.lastMove;
     if (!lastMove) return;
 
-    [lastMove.from, lastMove.to].forEach((p) => this.highlightSquare(p % 8, 7 - Math.floor(p / 8)));
+    [lastMove.from, lastMove.to].forEach((p) => this.highlightSquare(this.flip(7 - (p % 8)), this.flip(Math.floor(p / 8))));
   }
 
   private highlightSquare(x: number, y: number): void {
@@ -226,10 +260,10 @@ export class AppComponent implements OnInit {
   }
 
   private renderDot(to: number): void {
-    const x = to % 8;
-    const y = 7 - Math.floor(to / 8);
+    const x = this.flip(7 - (to % 8));
+    const y = this.flip(Math.floor(to / 8));
     this.legalMoveLayer.beginPath();
-    this.legalMoveLayer.arc((x + 0.5) * this.SQUARE_SIZE, (y + 0.5) * this.SQUARE_SIZE, 10, 0, 2 * Math.PI);
+    this.legalMoveLayer.arc((x + 0.5) * this.SQUARE_SIZE, (y + 0.5) * this.SQUARE_SIZE, this.SQUARE_SIZE / 5, 0, 2 * Math.PI);
     this.legalMoveLayer.fillStyle = 'rgba(0, 0, 0, 0.5)';
     this.legalMoveLayer.fill();
   }
@@ -291,13 +325,44 @@ export class AppComponent implements OnInit {
   private handleMouseMove(e: MouseEvent): void {
     if (!this.isDragging) return;
 
-    this.draggingLayer.clearRect(0, 0, 400, 400);
-    this.draggingLayer.drawImage(this.draggingPiece, e.offsetX - 22, e.offsetY - 22);
+    let { pageX, pageY } = e;
+    this.handleDrag(pageX, pageY);
   }
 
-  private handleMouseDownPiece(e: MouseEvent): void {
-    const x = Math.floor(e.offsetX / this.SQUARE_SIZE);
-    const y = 7 - Math.floor(e.offsetY / this.SQUARE_SIZE);
+  private handleTouchMove(e: TouchEvent): void {
+    let { pageX, pageY } = e.touches[0];
+    this.handleDrag(pageX, pageY);
+  }
+
+  private handleDrag(pageX: number, pageY: number): void {
+    pageX += BOARD_OFFSET[0];
+    pageY += BOARD_OFFSET[1];
+    this.draggingLayer.clearRect(0, 0, 8 * this.SQUARE_SIZE, 8 * this.SQUARE_SIZE);
+    this.draggingLayer.drawImage(this.draggingPiece, pageX - 22, pageY - 22, this.SQUARE_SIZE, this.SQUARE_SIZE);
+  }
+
+  private flip(xy: number) {
+    return this.flipped ? xy : 7 - xy;
+  }
+
+  private handleMouseDownPiece(e: Event): void {
+    let { pageX, pageY } = e instanceof TouchEvent ? (e as TouchEvent).touches[0] : (e as MouseEvent);
+    this.handleStartDrag(pageX, pageY);
+  }
+
+  private handleTouchStart(e: TouchEvent): void {
+    let { pageX, pageY } = e.touches[0];
+    this.handleStartDrag(pageX, pageY);
+    e.preventDefault();
+  }
+
+  private handleStartDrag(pageX: number, pageY: number): void {
+    pageX += BOARD_OFFSET[0];
+    pageY += BOARD_OFFSET[1];
+    const x = this.flip(7 - Math.floor(pageX / this.SQUARE_SIZE));
+    const y = this.flip(Math.floor(pageY / this.SQUARE_SIZE));
+    if (x < 0 || y < 0 || x > 7 || y > 7) return;
+
     const candidate = x + y * 8;
     if (~this.selectedSquare) {
       if (this.selectedSquare === candidate) {
@@ -315,23 +380,35 @@ export class AppComponent implements OnInit {
       if (this.board.at(candidate) === '_') return;
     }
     this.selectedSquare = candidate;
-    this.highlightSquare(x, 7 - y);
+    this.highlightSquare(this.flip(7 - x), this.flip(y));
     this.highlightLegalMoves(candidate);
     this.isDragging = true;
     this.renderPiece(candidate, '_');
     this.draggingPiece = new Image();
     this.draggingPiece.onload = () => {
-      this.draggingLayer.drawImage(this.draggingPiece, e.offsetX - 22, e.offsetY - 22);
+      this.draggingLayer.drawImage(this.draggingPiece, pageX - 22, pageY - 22, this.SQUARE_SIZE, this.SQUARE_SIZE);
     };
     this.draggingPiece.src = this.ASSET_MAP.get(this.board.at(candidate));
   }
 
   private handleMouseUp(e: MouseEvent): void {
+    let { pageX, pageY } = e;
+    this.handleDragEnd(pageX, pageY);
+  }
+
+  private handleTouchEnd(e: TouchEvent): void {
+    let { pageX, pageY } = e.changedTouches[0];
+    this.handleDragEnd(pageX, pageY);
+  }
+
+  private handleDragEnd(pageX: number, pageY: number): void {
+    pageX += BOARD_OFFSET[0];
+    pageY += BOARD_OFFSET[1];
     this.isDragging = false;
-    const x = Math.floor(e.offsetX / this.SQUARE_SIZE);
-    const y = 7 - Math.floor(e.offsetY / this.SQUARE_SIZE);
+    const x = this.flip(7 - Math.floor(pageX / this.SQUARE_SIZE));
+    const y = this.flip(Math.floor(pageY / this.SQUARE_SIZE));
     const candidate = x + y * 8;
-    this.draggingLayer.clearRect(0, 0, 400, 400);
+    this.draggingLayer.clearRect(0, 0, 8 * this.SQUARE_SIZE, 8 * this.SQUARE_SIZE);
     if (!~this.selectedSquare) return;
 
     if (this.engine.tryMakeMove(this.selectedSquare, candidate)) {
@@ -343,15 +420,22 @@ export class AppComponent implements OnInit {
   }
 
   private renderPiece(square: number, piece: string): void {
-    const x = square % 8;
-    const y = 7 - Math.floor(square / 8);
+    const x = this.flip(7 - (square % 8));
+    const y = this.flip(Math.floor(square / 8));
     this.pieceLayer.clearRect(x * this.SQUARE_SIZE, y * this.SQUARE_SIZE, this.SQUARE_SIZE, this.SQUARE_SIZE);
     const asset = this.ASSET_MAP.get(piece);
     if (!asset) return;
 
     const pieceImage = new Image();
+    const pieceScale = 0.9;
     pieceImage.onload = () => {
-      this.pieceLayer.drawImage(pieceImage, x * this.SQUARE_SIZE + 2, y * this.SQUARE_SIZE + 2);
+      this.pieceLayer.drawImage(
+        pieceImage,
+        (x + (1 - pieceScale) / 2) * this.SQUARE_SIZE,
+        (y + (1 - pieceScale) / 2) * this.SQUARE_SIZE,
+        this.SQUARE_SIZE * pieceScale,
+        this.SQUARE_SIZE * pieceScale,
+      );
     };
     pieceImage.src = asset;
   }

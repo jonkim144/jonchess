@@ -8,61 +8,66 @@
     type="text"
     (blur)="handleChangeFen()"
     [formControl]="fenControl"
-    style="margin-bottom: 10px; width: 390px; font-family: 'Fira Code Retina'; font-size: 11px;"
+    style="margin-bottom: 10px; width: 360px; font-family: 'Fira Code Retina'; font-size: 11px;"
   />
   <input
     *ngIf="debugMode"
     type="text"
     (blur)="handleChangePerft()"
     [formControl]="perftControl"
-    style="margin-bottom: 10px; width: 390px; font-family: 'Fira Code Retina'; font-size: 11px;"
+    style="margin-bottom: 10px; width: 360px; font-family: 'Fira Code Retina'; font-size: 11px;"
   />
   <div>
     <div
-      style="display: inline-block; position: relative; width: 400px; height: 400px;"
+      style="display: inline-block; position: relative; width: 360px; height: 360px;"
     >
       <canvas
         #boardCanvas
-        width="400"
-        height="400"
+        width="360"
+        height="360"
         style="position: absolute; left: 0; top: 0; z-index: 0;"
       >
       </canvas>
       <canvas
         #highlightCanvas
-        width="400"
-        height="400"
+        width="360"
+        height="360"
         style="position: absolute; left: 0; top: 0; z-index: 1;"
       >
       </canvas>
       <canvas
         #pieceCanvas
-        width="400"
-        height="400"
+        width="360"
+        height="360"
         style="position: absolute; left: 0; top: 0; z-index: 2;"
       >
       </canvas>
       <canvas
         #legalMoveCanvas
-        width="400"
-        height="400"
+        width="360"
+        height="360"
         style="position: absolute; left: 0; top: 0; z-index: 3;"
       >
       </canvas>
       <canvas
         #draggingCanvas
-        width="400"
-        height="400"
+        width="360"
+        height="360"
         style="position: absolute; left: 0; top: 0; z-index: 4;"
       >
       </canvas>
     </div>
-    <div style="display: inline-block; vertical-align: top; margin-left: 10px;">
-      <canvas #themeCanvas width="50" height="50"></canvas>
-    </div>
   </div>
-  <button mat-button (click)="handleClickMakeMove()">Make move</button>
+  <button style="margin-top: 10px" mat-button (click)="handleClickMakeMove()">
+    Make move
+  </button>
   <input [formControl]="messageControl" [readonly]="true" />
+  <div style="margin-top: 10px; vertical-align: center">
+    <button mat-button (click)="handleClickUndo()">Undo</button>
+    <button mat-button (click)="handleClickRedo()">Redo</button>
+    <button mat-button (click)="handleClickFlip()">Flip</button>
+  </div>
+  <canvas style="margin-top: 10px" #themeCanvas width="45" height="45"></canvas>
   <div *ngIf="debugMode">
     <textarea
       [formControl]="perftOutputControl"
