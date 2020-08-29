@@ -178,7 +178,11 @@ export class Engine {
           for (const move of moves) {
             let score;
             move.move(this.board);
-            score = -this.findBestMove(d, -beta, -alpha);
+            if (this.positionCounts.get(this.board.hash) > 0) {
+              score = 0;
+            } else {
+              score = -this.findBestMove(d, -beta, -alpha);
+            }
             move.undo(this.board);
             if (score > alpha) {
               bestMove = move;
